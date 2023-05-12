@@ -1,0 +1,422 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import operator
+#Training label
+train_label = open('20news-bydate/matlab/train.label')
+​
+#pi is the fraction of each class
+pi = {}
+​
+#Set a class index for each document as key
+for i in range(1,21):
+    pi[i] = 0
+    
+#Extract values from training labels
+lines = train_label.readlines()
+​
+#Get total number of documents
+total = len(lines)
+​
+#Count the occurence of each class
+for line in lines:
+    val = int(line.split()[0])
+    pi[val] += 1
+​
+#Divide the count of each class by total documents 
+for key in pi:
+    pi[key] /= total
+    
+print("Probability of each class:")
+print("\n".join("{}: {}".format(k, v) for k, v in pi.items()))
+Probability of each class:
+1: 0.04259472890229834
+2: 0.05155736977549028
+3: 0.05075871860857219
+4: 0.05208980388676901
+5: 0.051024935664211554
+6: 0.052533498979501284
+7: 0.051646108794036735
+8: 0.052533498979501284
+9: 0.052888455053687104
+10: 0.0527109770165942
+11: 0.05306593309078002
+12: 0.0527109770165942
+13: 0.05244475996095483
+14: 0.0527109770165942
+15: 0.052622237998047744
+16: 0.05315467210932647
+17: 0.04836276510781791
+18: 0.05004880646020055
+19: 0.04117490460555506
+20: 0.033365870973467035
+#Training data
+train_data = open('20news-bydate/matlab/train.data')
+df = pd.read_csv(train_data, delimiter=' ', names=['docIdx', 'wordIdx', 'count'])
+​
+#Training label
+label = []
+train_label = open('20news-bydate/matlab/train.label')
+lines = train_label.readlines()
+for line in lines:
+    label.append(int(line.split()[0]))
+​
+#Increase label length to match docIdx
+docIdx = df['docIdx'].values
+i = 0
+new_label = []
+for index in range(len(docIdx)-1):
+    new_label.append(label[i])
+    if docIdx[index] != docIdx[index+1]:
+        i += 1
+new_label.append(label[i]) #for-loop ignores last value
+​
+#Add label column
+df['classIdx'] = new_label
+​
+df.head()
+docIdx	wordIdx	count	classIdx
+0	1	1	4	1
+1	1	2	2	1
+2	1	3	10	1
+3	1	4	4	1
+4	1	5	2	1
+#Alpha value for smoothing
+a = 0.001
+​
+#Calculate probability of each word based on class
+pb_ij = df.groupby(['classIdx','wordIdx'])
+pb_j = df.groupby(['classIdx'])
+Pr =  (pb_ij['count'].sum() + a) / (pb_j['count'].sum() + 16689)    
+​
+#Unstack series
+Pr = Pr.unstack()
+​
+#Replace NaN or columns with 0 as word count with a/(count+|V|+1)
+for c in range(1,21):
+    Pr.loc[c,:] = Pr.loc[c,:].fillna(a/(pb_j['count'].sum()[c] + 16689))
+​
+#Convert to dictionary for greater speed
+Pr_dict = Pr.to_dict()
+​
+Pr
+wordIdx	1	2	3	4	5	6	7	8	9	10	...	53966	53967	53968	53969	53970	53971	53972	53973	53974	53975
+classIdx																					
+1	7.855542e-05	0.000381	1.661627e-03	5.438638e-05	0.000495	0.000248	3.625960e-05	6.048302e-06	0.000205	8.459224e-04	...	6.042260e-09	6.042260e-09	6.042260e-09	6.042260e-09	6.042260e-09	6.042260e-09	6.042260e-09	6.042260e-09	6.042260e-09	6.042260e-09
+2	4.722740e-04	0.000464	7.871103e-09	1.338166e-04	0.000110	0.000457	7.871890e-05	4.723449e-05	0.001354	2.362118e-05	...	7.871103e-09	7.871103e-09	7.871103e-09	7.871103e-09	7.871103e-09	7.871103e-09	7.871103e-09	7.871103e-09	7.871103e-09	7.871103e-09
+3	1.023768e-04	0.000642	9.306135e-09	1.582136e-04	0.000195	0.000316	1.862158e-05	1.862158e-05	0.001340	9.306135e-09	...	9.306135e-09	9.306135e-09	9.306135e-09	9.306135e-09	9.306135e-09	9.306135e-09	9.306135e-09	9.306135e-09	9.306135e-09	9.306135e-09
+4	6.907239e-05	0.000268	8.632969e-09	8.632969e-09	0.000086	0.000414	1.727457e-05	8.641602e-06	0.000414	8.632969e-09	...	8.632969e-09	8.632969e-09	8.632969e-09	8.632969e-09	8.632969e-09	8.632969e-09	8.632969e-09	8.632969e-09	8.632969e-09	8.632969e-09
+5	5.833066e-05	0.000321	9.720157e-09	9.729877e-06	0.000010	0.000457	9.729877e-06	9.720157e-09	0.000457	9.720157e-09	...	9.720157e-09	9.720157e-09	9.720157e-09	9.720157e-09	9.720157e-09	9.720157e-09	9.720157e-09	9.720157e-09	9.720157e-09	9.720157e-09
+6	2.772348e-04	0.001309	5.898487e-09	4.659864e-04	0.000088	0.000307	1.238741e-04	1.770136e-05	0.001398	5.898487e-09	...	5.898487e-09	5.898487e-09	5.898487e-09	5.898487e-09	5.898487e-09	5.898487e-09	5.898487e-09	5.898487e-09	5.898487e-09	5.898487e-09
+7	1.285628e-08	0.000360	1.285628e-08	2.572542e-05	0.000026	0.000411	1.285628e-08	1.285628e-08	0.000360	3.858170e-05	...	1.285628e-08	1.285628e-08	1.285628e-08	1.285628e-08	1.285628e-08	1.285628e-08	1.285628e-08	1.285628e-08	1.285628e-08	1.285628e-08
+8	6.881972e-05	0.000413	7.645786e-09	7.645786e-09	0.000099	0.000658	5.352815e-05	2.294500e-05	0.000138	7.645786e-09	...	7.645786e-09	7.645786e-09	7.645786e-09	7.645786e-09	7.645786e-09	7.645786e-09	7.645786e-09	7.645786e-09	7.645786e-09	7.645786e-09
+9	1.173399e-04	0.000562	8.380825e-09	3.353168e-05	0.000034	0.000696	2.515085e-05	8.389205e-06	0.000034	8.380825e-09	...	8.380825e-09	8.380825e-09	8.380825e-09	8.380825e-09	8.380825e-09	8.380825e-09	8.380825e-09	8.380825e-09	8.380825e-09	8.380825e-09
+10	8.034546e-06	0.000265	8.026520e-09	1.606107e-05	0.000008	0.002424	8.034546e-06	8.026520e-09	0.000016	8.026520e-09	...	8.026520e-09	8.026520e-09	8.026520e-09	8.026520e-09	8.026520e-09	8.026520e-09	8.026520e-09	8.026520e-09	8.026520e-09	8.026520e-09
+11	6.337208e-06	0.000424	6.330877e-09	6.330877e-09	0.000006	0.001323	1.266808e-05	5.065335e-05	0.000025	6.330877e-09	...	6.330877e-09	6.330877e-09	6.330877e-09	6.330877e-09	6.330877e-09	6.330877e-09	6.330877e-09	6.330877e-09	6.330877e-09	6.330877e-09
+12	2.394759e-04	0.000414	4.605218e-09	5.066200e-05	0.000272	0.000373	1.151350e-04	3.224113e-05	0.000511	4.605218e-09	...	4.605218e-09	4.605218e-09	4.605218e-09	4.605218e-09	4.605218e-09	4.605218e-09	4.605218e-09	4.605218e-09	4.605218e-09	4.605218e-09
+13	2.503713e-05	0.000275	8.342928e-09	1.669420e-05	0.000042	0.000250	4.172298e-05	1.669420e-05	0.000242	8.342928e-09	...	8.342928e-09	8.342928e-09	8.342928e-09	8.342928e-09	8.342928e-09	8.342928e-09	8.342928e-09	8.342928e-09	8.342928e-09	8.342928e-09
+14	8.720143e-05	0.000227	5.813041e-09	7.557535e-05	0.000116	0.000401	5.818854e-06	5.232318e-05	0.000145	5.813041e-09	...	5.813041e-09	5.813041e-09	5.813041e-09	5.813041e-09	5.813041e-09	5.813041e-09	5.813041e-09	5.813041e-09	5.813041e-09	5.813041e-09
+15	2.816911e-04	0.000481	5.868441e-09	1.291116e-04	0.000070	0.000599	1.349800e-04	5.282184e-05	0.000141	5.868441e-09	...	5.868441e-09	5.868441e-09	5.868441e-09	5.868441e-09	5.868441e-09	5.868441e-09	5.868441e-09	5.868441e-09	5.868441e-09	5.868441e-09
+16	4.588082e-09	0.000564	7.341390e-05	3.212116e-05	0.000064	0.000463	4.588082e-09	4.588082e-09	0.000078	2.569372e-04	...	4.588082e-09	4.588082e-09	4.588082e-09	4.588082e-09	4.588082e-09	4.588082e-09	4.588082e-09	4.588082e-09	4.588082e-09	4.588082e-09
+17	9.865371e-05	0.000171	5.192027e-09	3.115735e-05	0.000057	0.000550	1.038925e-05	4.154141e-05	0.000099	5.192027e-09	...	5.192027e-09	5.192027e-09	5.192027e-09	5.192027e-09	5.192027e-09	5.192027e-09	5.192027e-09	5.192027e-09	5.192027e-09	5.192027e-09
+18	3.683691e-05	0.000567	3.683323e-09	3.315359e-05	0.000007	0.000575	2.947026e-05	1.105034e-04	0.000037	3.687006e-06	...	3.683323e-09	3.683323e-09	3.683323e-09	3.683323e-09	3.683323e-09	3.683323e-09	3.683323e-09	3.683323e-09	3.683323e-09	3.683323e-09
+19	4.923319e-09	0.000192	4.923319e-09	1.132413e-04	0.000084	0.000743	4.928243e-06	8.370135e-05	0.000049	4.923319e-09	...	4.923319e-09	4.923319e-09	4.923319e-09	4.923319e-09	4.923319e-09	4.923319e-09	4.923319e-09	4.923319e-09	4.923319e-09	4.923319e-09
+20	7.364584e-09	0.000331	6.628862e-05	1.473653e-05	0.000169	0.000324	3.683028e-05	7.371948e-06	0.000140	3.683028e-05	...	7.371948e-06	7.371948e-06	1.473653e-05	7.371948e-06	7.371948e-06	7.371948e-06	7.371948e-06	7.371948e-06	7.371948e-06	7.371948e-06
+20 rows × 53975 columns
+
+#Common stop words from online
+stop_words = [
+"a", "about", "above", "across", "after", "afterwards", 
+"again", "all", "almost", "alone", "along", "already", "also",    
+"although", "always", "am", "among", "amongst", "amoungst", "amount", "an", "and", "another", "any", "anyhow", "anyone", "anything", "anyway", "anywhere", "are", "as", "at", "be", "became", "because", "become","becomes", "becoming", "been", "before", "behind", "being", "beside", "besides", "between", "beyond", "both", "but", "by","can", "cannot", "cant", "could", "couldnt", "de", "describe", "do", "done", "each", "eg", "either", "else", "enough", "etc", "even", "ever", "every", "everyone", "everything", "everywhere", "except", "few", "find","for","found", "four", "from", "further", "get", "give", "go", "had", "has", "hasnt", "have", "he", "hence", "her", "here", "hereafter", "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his", "how", "however", "i", "ie", "if", "in", "indeed", "is", "it", "its", "itself", "keep", "least", "less", "ltd", "made", "many", "may", "me", "meanwhile", "might", "mine", "more", "moreover", "most", "mostly", "much", "must", "my", "myself", "name", "namely", "neither", "never", "nevertheless", "next","no", "nobody", "none", "noone", "nor", "not", "nothing", "now", "nowhere", "of", "off", "often", "on", "once", "one", "only", "onto", "or", "other", "others", "otherwise", "our", "ours", "ourselves", "out", "over", "own", "part","perhaps", "please", "put", "rather", "re", "same", "see", "seem", "seemed", "seeming", "seems", "she", "should","since", "sincere","so", "some", "somehow", "someone", "something", "sometime", "sometimes", "somewhere", "still", "such", "take","than", "that", "the", "their", "them", "themselves", "then", "thence", "there", "thereafter", "thereby", "therefore", "therein", "thereupon", "these", "they",
+"this", "those", "though", "through", "throughout",
+"thru", "thus", "to", "together", "too", "toward", "towards",
+"under", "until", "up", "upon", "us",
+"very", "was", "we", "well", "were", "what", "whatever", "when",
+"whence", "whenever", "where", "whereafter", "whereas", "whereby",
+"wherein", "whereupon", "wherever", "whether", "which", "while", 
+"who", "whoever", "whom", "whose", "why", "will", "with",
+"within", "without", "would", "yet", "you", "your", "yours", "yourself", "yourselves"
+]
+vocab = open('vocabulary.txt') 
+vocab_df = pd.read_csv(vocab, names = ['word']) 
+vocab_df = vocab_df.reset_index() 
+vocab_df['index'] = vocab_df['index'].apply(lambda x: x+1) 
+vocab_df.head()
+index	word
+0	1	archive
+1	2	name
+2	3	atheism
+3	4	resources
+4	5	alt
+#Index of all words
+tot_list = set(vocab_df['index'])
+​
+#Index of good words
+vocab_df = vocab_df[~vocab_df['word'].isin(stop_words)]
+good_list = vocab_df['index'].tolist()
+good_list = set(good_list)
+​
+#Index of stop words
+bad_list = tot_list - good_list
+​
+#Set all stop words to 0
+for bad in bad_list:
+    for j in range(1,21):
+        Pr_dict[j][bad] = a/(pb_j['count'].sum()[j] + 16689)
+#Calculate IDF 
+tot = len(df['docIdx'].unique()) 
+pb_ij = df.groupby(['wordIdx']) 
+IDF = np.log(tot/pb_ij['docIdx'].count()) 
+IDF_dict = IDF.to_dict()
+def MNB(df, smooth = False, IDF = False):
+    '''
+    Multinomial Naive Bayes classifier
+    :param df [Pandas Dataframe]: Dataframe of data
+    :param smooth [bool]: Apply Smoothing if True
+    :param IDF [bool]: Apply Inverse Document Frequency if True
+    :return predict [list]: Predicted class ID
+    '''
+    #Using dictionaries for greater speed
+    df_dict = df.to_dict()
+    new_dict = {}
+    prediction = []
+    
+    #new_dict = {docIdx : {wordIdx: count},....}
+    for idx in range(len(df_dict['docIdx'])):
+        docIdx = df_dict['docIdx'][idx]
+        wordIdx = df_dict['wordIdx'][idx]
+        count = df_dict['count'][idx]
+        try: 
+            new_dict[docIdx][wordIdx] = count 
+        except:
+            new_dict[df_dict['docIdx'][idx]] = {}
+            new_dict[docIdx][wordIdx] = count
+​
+    #Calculating the scores for each doc
+    for docIdx in range(1, len(new_dict)+1):
+        score_dict = {}
+        #Creating a probability row for each class
+        for classIdx in range(1,21):
+            score_dict[classIdx] = 1
+            #For each word:
+            for wordIdx in new_dict[docIdx]:
+                #Check for frequency smoothing
+                #log(1+f)*log(Pr(i|j))
+                if smooth: 
+                    try:
+                        probability=Pr_dict[wordIdx][classIdx]         
+                        power = np.log(1+ new_dict[docIdx][wordIdx])     
+                        #Check for IDF
+                        if IDF:
+                            score_dict[classIdx]+=(power*np.log(probability*IDF_dict[wordIdx]))
+                        else:
+                            score_dict[classIdx]+=power*np.log(probability)
+                    except:
+                        #Missing V will have log(1+0)*log(a/16689)=0 
+                        score_dict[classIdx] += 0                        
+                #f*log(Pr(i|j))
+                else: 
+                    try:
+                        probability = Pr_dict[wordIdx][classIdx]        
+                        power = new_dict[docIdx][wordIdx]               
+                        score_dict[classIdx]+=power*np.log(probability) 
+                        #Check for IDF
+                        if IDF:
+                            score_dict[classIdx]+= power*np.log(probability*IDF_dict[wordIdx]) 
+                    except:
+                        #Missing V will have 0*log(a/16689) = 0
+                        score_dict[classIdx] += 0      
+            #Multiply final with pi         
+            score_dict[classIdx] +=  np.log(pi[classIdx])                          
+​
+        #Get class with max probabilty for the given docIdx 
+        max_score = max(score_dict, key=score_dict.get)
+        prediction.append(max_score)
+        
+    return prediction
+regular_predict=MNB(df, smooth=False, IDF=False)
+smooth_predict=MNB(df, smooth=True, IDF=False)
+tfidf_predict=MNB(df, smooth=False, IDF=True)
+all_predict=MNB(df, smooth=True, IDF=True)
+#Get list of labels
+train_label = pd.read_csv('20news-bydate/matlab/train.label',names=['t'])
+train_label= train_label['t'].tolist()
+total = len(train_label) 
+models = [regular_predict,smooth_predict,tfidf_predict,all_predict] 
+strings = ['Regular', 'Smooth', 'IDF', 'Both'] 
+ 
+for m,s in zip(models,strings):
+    val = 0
+    for i,j in zip(m, train_label):
+        if i != j:
+            val +=1
+        else:
+            pass   
+    print(s,"Error:\t\t",val/total * 100, "%")
+regular_predict=MNB(df, smooth=False, IDF=False)
+smooth_predict=MNB(df, smooth=True, IDF=False)
+tfidf_predict=MNB(df, smooth=False, IDF=True)
+all_predict=MNB(df, smooth=True, IDF=True)
+#Get list of labels
+train_label = pd.read_csv('20news-bydate/matlab/train.label',names=['t'])
+train_label= train_label['t'].tolist()
+total = len(train_label) 
+models = [regular_predict,smooth_predict,tfidf_predict,all_predict] 
+strings = ['Regular', 'Smooth', 'IDF', 'Both'] 
+ 
+for m,s in zip(models,strings):
+    val = 0
+    for i,j in zip(m, train_label):
+        if i != j:
+            val +=1
+        else:
+            pass   
+    print(s,"Error:\t\t",val/total * 100, "%")
+Regular Error:		 3.4608217233117404 %
+Smooth Error:		 1.8546454876209069 %
+IDF Error:		 3.478569527021031 %
+Both Error:		 1.8546454876209069 %
+#Get test data
+test_data = open('20news-bydate/matlab/test.data')
+df = pd.read_csv(test_data, delimiter=' ', names=['docIdx', 'wordIdx', 'count'])
+​
+#Get list of labels
+test_label = pd.read_csv('20news-bydate/matlab/test.label', names=['t'])
+test_label= test_label['t'].tolist()
+​
+#MNB Calculation
+predict = MNB(df, smooth = True, IDF = False)
+​
+total = len(test_label)
+val = 0
+for i,j in zip(predict, test_label):
+    if i == j:
+        val +=1
+    else:
+        pass
+print("Error:\t",(1-(val/total)) * 100, "%")
+Error:	 22.571618920719516 %
+print(news.keys())
+​
+dict_keys(['data', 'filenames', 'target_names', 'target', 'DESCR'])
+20newsgroups
+from sklearn.datasets import fetch_20newsgroups
+news = fetch_20newsgroups()
+Downloading 20news dataset. This may take a few minutes.
+Downloading dataset from https://ndownloader.figshare.com/files/5975967 (14 MB)
+news.target
+array([7, 4, 4, ..., 3, 1, 8])
+news. target_names
+​
+['alt.atheism',
+ 'comp.graphics',
+ 'comp.os.ms-windows.misc',
+ 'comp.sys.ibm.pc.hardware',
+ 'comp.sys.mac.hardware',
+ 'comp.windows.x',
+ 'misc.forsale',
+ 'rec.autos',
+ 'rec.motorcycles',
+ 'rec.sport.baseball',
+ 'rec.sport.hockey',
+ 'sci.crypt',
+ 'sci.electronics',
+ 'sci.med',
+ 'sci.space',
+ 'soc.religion.christian',
+ 'talk.politics.guns',
+ 'talk.politics.mideast',
+ 'talk.politics.misc',
+ 'talk.religion.misc']
+cats = ['alt.atheism', 'rec.sport.hockey','sci.space', 'sci.med']
+news_train = fetch_20newsgroups(subset ='train', categories=cats)
+news_test = fetch_20newsgroups(subset= 'test', categories=cats)
+print(news_train . keys( ))
+print (news_train[ 'target_names'])
+dict_keys(['data', 'filenames', 'target_names', 'target', 'DESCR'])
+['alt.atheism', 'rec.sport.hockey', 'sci.med', 'sci.space']
+from sklearn.feature_extraction.text import CountVectorizer
+​
+count_vect=CountVectorizer()
+X_train_tf=count_vect.fit_transform(news_train.data)
+print(X_train_tf)
+​
+X_train_tf.shape
+  (0, 31939)	1
+  (0, 33309)	1
+  (0, 10730)	1
+  (0, 14364)	1
+  (0, 17621)	1
+  (0, 17882)	1
+  (0, 23457)	1
+  (0, 20402)	1
+  (0, 12459)	1
+  (0, 30791)	1
+  (0, 33333)	1
+  (0, 30137)	1
+  (0, 30216)	1
+  (0, 23604)	2
+  (0, 35384)	1
+  (0, 18442)	2
+  (0, 18866)	1
+  (0, 28487)	1
+  (0, 24597)	1
+  (0, 12467)	1
+  (0, 5649)	1
+  (0, 9390)	1
+  (0, 24382)	1
+  (0, 5217)	2
+  (0, 28152)	1
+  :	:
+  (2266, 14387)	1
+  (2266, 19935)	1
+  (2266, 16291)	1
+  (2266, 36721)	1
+  (2266, 18237)	1
+  (2266, 33325)	1
+  (2266, 31157)	1
+  (2266, 27085)	1
+  (2266, 36390)	1
+  (2266, 36291)	1
+  (2266, 33317)	2
+  (2266, 5851)	5
+  (2266, 33683)	3
+  (2266, 36480)	2
+  (2266, 11322)	2
+  (2266, 6376)	2
+  (2266, 18485)	3
+  (2266, 21266)	1
+  (2266, 12803)	1
+  (2266, 24681)	2
+  (2266, 24998)	1
+  (2266, 28004)	1
+  (2266, 32251)	1
+  (2266, 13525)	2
+  (2266, 15800)	1
+(2267, 36898)
+from sklearn.feature_extraction.text import TfidfTransformer
+tfidf_transformer=TfidfTransformer()
+X_train_tfidf=tfidf_transformer.fit_transform(X_train_tf)
+X_train_tfidf.shape
+(2267, 36898)
+from sklearn.naive_bayes import MultinomialNB
+clf = MultinomialNB().fit(X_train_tfidf, news_train.target)
+​
+X_test_tf=count_vect.transform(news_test.data)
+X_test_tfidf=tfidf_transformer.transform(X_test_tf)
+predicted=clf.predict(X_test_tfidf)
+​
+predicted
+array([3, 3, 1, ..., 2, 0, 0], dtype=int64)
+from sklearn import metrics
+​
+from sklearn.metrics import accuracy_score
+print("Accuracy",accuracy_score(news_test.target,predicted))
+print(metrics.confusion_matrix(news_test.target,predicted))
+​
+Accuracy 0.9529177718832891
+[[290   5  14  10]
+ [  1 394   3   1]
+ [  7   9 367  13]
+ [  2   1   5 386]]
